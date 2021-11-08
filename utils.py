@@ -1,4 +1,13 @@
 import numpy as np
+import os
+
+class NoMetadataError(Exception):
+    def __init__(self,message):
+        self.message = message
+        
+class NotCloseEnoughError(Exception):
+    def __init__(self,message):
+        self.message = message
 
 def convert_T_over_mu_to_T_func():
     def calc_mu_table_local(temperature):
@@ -32,3 +41,39 @@ def convert_T_over_mu_to_T_func():
                              np.log(temperature_values))
             return np.exp(logT)
     return convert_T_over_mu_to_T
+
+def read_metadata(code,simnum,redshift,athreshold = .1):
+    a = 1/redshift+1
+    zthreshold = athreshold/a**2
+    path_to_metadata = os.path.expanduser("~/agora_analysis/agora_metadata")
+    foldernames = {'C1':'Cal1','C2':'Cal2','C3':'Cal3','CR':'CosmoRun'}
+    foldername = foldernames[simnum]
+    metadata_location_folder = os.path.join(path_to_metadata,foldername)
+    metadata_file = "AGORA_%s_%s.txt"%(code,simnum)
+    metadata_location = os.path.join(metadata_location_folder,metadata_file)
+    with open(metadata_location) as f:
+        lines = [line for line in f.readlines() if line.strip()]
+    zs,snapnums,center_xs,center_ys,center_zs,Rvirs = [],[],[],[],[],[]
+    if len(lines) == 1:
+        raise NoMetadataError('No metadata found for simulation %s!'%metadata_file)
+    for i,line in enumerate(lines):
+        if i == 0:
+            try:
+                assert line == 'z, snapnum, center_x, center_y, center_z, Rvir\n'
+                continue
+            except AssertionError:
+                print(line)
+        sections = line[:-1].split(', ')
+        zs.append(float(sections[0]))
+        snapnums.append(sections[1])
+        center_xs.append(float(sections[2]))
+        center_ys.append(float(sections[3]))
+        center_zs.append(float(sections[4]))
+        Rvirs.append(float(sections[5]))
+    closest_z_index = np.argmin(np.abs(np.array(zs)-redshift))
+    if np.abs(zs[closest_z_index]-redshift)>zthreshold:
+        message = "Nothing in %s is within %.3f of z=%.3f"%(metadata_location,zthreshold,redshift)
+        raise NotCloseEnoughError(message)
+    return zs[closest_z_index],snapnums[closest_z_index],center_xs[closest_z_index],\
+            center_ys[closest_z_index],center_zs[closest_z_index],\
+            Rvirs[closest_z_index]

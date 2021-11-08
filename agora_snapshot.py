@@ -2,11 +2,10 @@ import os
 import numpy as np
 from unyt import unyt_array,unyt_quantity
 from agora_analysis.agora_metadata.all_file_locations import locations
+from agora_analysis.utils import read_metadata,NotCloseEnoughError,NoMetadataError
 import yt
 
-class NoMetadataError(Exception):
-    def __init__(self,message):
-        self.message = message
+
 
 class NotImplementedError(Exception):
     def __init__(self,message):
@@ -18,6 +17,7 @@ class NoSimulationError(Exception):
 
 grid_codes = ['art','enzo','ramses']
 particle_codes = ['gadget','gear','gizmo','changa']
+codes = grid_codes+particle_codes
 
 class AgoraSnapshot(object):
     def __init__(self,fullname,redshift,Rvir_method = 'average',yt_log_level = 'default'):
@@ -36,12 +36,19 @@ class AgoraSnapshot(object):
         foldernames = {'C1':'Cal1','C2':'Cal2','C3':'Cal3','CR':'CosmoRun'}
         foldername = foldernames[self.simnum]
         self.metadata_location_folder = os.path.join(path_to_metadata,foldername)
-        self.lookup_metadata(redshift)
-        self.Rvir = self.lookup_Rvir(Rvir_method = Rvir_method)
+        self.approx_redshift = redshift
+        self.lookup_metadata()
+        self.lookup_Rvir(Rvir_method = Rvir_method)
         #self.Rvir = self.lookup_Rvir(fullname,self.redshift,Rvir_method)
         #can add other calculated variables (Mstar, sfr, Mgas, bulk_velocity, angular_momentum, etc.)
         #can make loading the actual dataset optional -- you can plot stuff like Rvir, Mstar by code 
         #& redshift without loading the full snapshots.
+        
+    def __repr__(self):
+        toret = self.fullname+' at redshift '+str(self.redshift)
+        if 'ds' not in self.__dict__.keys():
+            toret+= ' (not loaded)'
+        return toret
         
     def load_snapshot(self,path_to_snap = None):
         if path_to_snap is None:
@@ -50,55 +57,31 @@ class AgoraSnapshot(object):
         self.edit_center_units()
         self.set_up_fields(self.code,self.ds)
 
-    def lookup_metadata(self,redshift):
-        metadata_file = "AGORA_%s_%s.txt"%(self.code,self.simnum)
-        metadata_location = os.path.join(self.metadata_location_folder,metadata_file)
-        with open(metadata_location) as f:
-            lines = [line for line in f.readlines() if line.strip()]
-        zs,snapnums,center_xs,center_ys,center_zs = [],[],[],[],[]
-        if len(lines) == 1:
-            raise NoMetadataError('No metadata found for simulation %s!'%self.fullname)
-        for i,line in enumerate(lines):
-            if i == 0:
-                assert line == 'z, snapnum, center_x, center_y, center_z\n'
-                continue
-            sections = line[:-1].split(', ')
-            zs.append(float(sections[0]))
-            snapnums.append(sections[1])
-            center_xs.append(float(sections[2]))
-            center_ys.append(float(sections[3]))
-            center_zs.append(float(sections[4]))
-        closest_z_index = np.argmin(np.abs(np.array(zs)-redshift))
-        self.redshift = unyt_quantity(zs[closest_z_index],'')
-        self.snapnum = float(snapnums[closest_z_index])
-        self.center_x = unyt_quantity(center_xs[closest_z_index],'kpc')
-        self.center_y = unyt_quantity(center_ys[closest_z_index],'kpc')
-        self.center_z = unyt_quantity(center_zs[closest_z_index],'kpc')
+    def lookup_metadata(self):
+        z,snapnum,center_x,center_y,center_z,Rvir = read_metadata(self.code,self.simnum,self.approx_redshift)
+        self.redshift = unyt_quantity(z,'')
+        self.snapnum = float(snapnum)
+        self.center_x = unyt_quantity(center_x,'kpc')
+        self.center_y = unyt_quantity(center_y,'kpc')
+        self.center_z = unyt_quantity(center_z,'kpc')
         self.center = unyt_array([self.center_x,self.center_y,self.center_z])
+        self.specific_Rvir = unyt_quantity(Rvir,'kpc')
         
     def lookup_Rvir(self,Rvir_method = 'average'):
-        metadata_file = "Rvir_all.txt"
-        metadata_location = os.path.join(self.metadata_location_folder,metadata_file)
-        with open(metadata_location) as f:
-            lines = [line for line in f.readlines() if line.strip()]
-        zs = []
-        if len(lines) == 1:
-            raise NoMetadataError('No metadata found for simulation %s!'%self.fullname)
-        codes = lines[0][:-1].split(', ')[1:]
-        Rvirs = np.zeros((len(lines)-1,len(codes)))
-        for i,line in enumerate(lines[1:]):
-            sections = line[:-1].split(', ')
-            zs.append(float(sections[0]))
-            for j in range(0,len(codes)):
-                Rvirs[i,j] = float(sections[j+1])
-        interp_zs = np.array(zs)
+        Rvirs = []
+        for code in codes:
+            try:
+                _,_,_,_,_,Rvir = read_metadata(code,self.simnum,self.approx_redshift)
+                Rvirs.append(Rvir)
+            except NotCloseEnoughError:
+                continue
+            except NoMetadataError:
+                continue
         if Rvir_method == 'average':
-            interp_list = np.average(Rvirs,axis = 1)
+            Rvir = unyt_quantity(np.average(Rvirs),'kpc')
+            self.Rvir = Rvir
         else:
-            interp_list = Rvirs[:,codes.index(self.code)]
-        Rvir_float = np.interp(self.redshift,np.flip(interp_zs),np.flip(interp_list))
-        Rvir = unyt_quantity(Rvir_float,'kpc')
-        return Rvir
+            self.Rvir = self.specific_Rvir
         
     def lookup_snap_path(self):
         root_loc = "/project/projectdirs/agora/paper_CGM"
@@ -118,7 +101,7 @@ class AgoraSnapshot(object):
             else:
                 filename = '10MpcBox_csf512_%05d.d'%self.snapnum
         elif self.code == 'changa':
-            name = {'CR':'11-l-cal-IV.red','C1':'cal0'}[self.simnum]
+            name = {'CR':'11-l-cal-IV','C1':'cal0'}[self.simnum]
             filename = '%s.%06d'%(name,self.snapnum)
         elif self.code == 'enzo':
             filename = 'RD%04d/RD%04d'%(self.snapnum,self.snapnum)

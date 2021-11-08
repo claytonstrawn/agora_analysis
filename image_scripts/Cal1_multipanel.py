@@ -20,8 +20,10 @@ add_nametag                      = 1           # 0/1       = OFF/ON
 
 figure_width                     = 200          # in kpc
 
-codes_labels = ['ART-I','RAMSES','ENZO','GADGET-3','GEAR','CHANGA','GIZMO']
-codes = ['art','ramses','enzo','gadget','gear','changa','gizmo']
+orig_codes_labels = {'art':'ART-I','ramses':'RAMSES','enzo':'ENZO',
+                     'gadget':'GADGET-3','gear':'GEAR','changa':'CHANGA',
+                     'gizmo':'GIZMO'}
+orig_codes = ['art','ramses','enzo','gadget','gear','changa','gizmo']
 
 grid_codes = ['art','enzo','ramses']
 particle_codes = ['gadget','gear','gizmo','changa']
@@ -29,7 +31,7 @@ particle_codes = ['gadget','gear','gizmo','changa']
 fig_short_maps = [None]*3
 grid_short_maps = [None]*3
 
-def Cal1_multipanel(save = True,show = True):
+def Cal1_multipanel(save = True,show = True,codes = orig_codes):
     for ax_plot in range(0,3):
         fig_short_maps[ax_plot]  = plt.figure(figsize=(100,20))
         grid_short_maps[ax_plot] = AxesGrid(fig_short_maps[ax_plot],(0.01,0.01,0.99,0.99), \
@@ -111,7 +113,7 @@ def Cal1_multipanel(save = True,show = True):
                                  linewidth=1,fill=False, ls='--')
             grid_short_map[code_num].axes.add_artist(circle2)
             if add_nametag:
-                at = AnchoredText("%s" % (codes_labels[code_num]), 
+                at = AnchoredText("%s" % (orig_codes_labels[code]), 
                                   loc=2, prop=dict(size=9), frameon=True)
                 grid_short_map[code_num].axes.add_artist(at)
 
@@ -128,7 +130,7 @@ def Cal1_multipanel(save = True,show = True):
                                  weight_field = ("gas", "agora_density"), fontsize=12)
             p12.set_zlim(("gas", "agora_temperature"), 5e3, 1e6)
             p12.set_cmap(("gas", "agora_temperature"), my_cmap)
-            p11.set_colorbar_label(("gas", "agora_temperature"), 
+            p12.set_colorbar_label(("gas", "agora_temperature"), 
                        "$\mathrm{Temperature}\left(\mathrm{K}\right)")
             plot2 = p12.plots[("gas", "agora_temperature")]
             plot2.figure = fig_short_map
@@ -158,4 +160,4 @@ def Cal1_multipanel(save = True,show = True):
         plt.show()
 
 if __name__ == '__main__':
-    Cal2_multipanel(save = True,show = False)
+    Cal1_multipanel(save = True,show = False)

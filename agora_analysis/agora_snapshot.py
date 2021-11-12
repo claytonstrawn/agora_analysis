@@ -32,10 +32,6 @@ class AgoraSnapshot(object):
             self.stars_in = True
         elif self.simnum in ['C1','C2']:
             self.stars_in = False
-        path_to_metadata = os.path.expanduser("~/agora_analysis/agora_metadata")
-        foldernames = {'C1':'Cal1','C2':'Cal2','C3':'Cal3','CR':'CosmoRun'}
-        foldername = foldernames[self.simnum]
-        self.metadata_location_folder = os.path.join(path_to_metadata,foldername)
         self.approx_redshift = redshift
         self.lookup_metadata()
         self.lookup_Rvir(Rvir_method = Rvir_method)

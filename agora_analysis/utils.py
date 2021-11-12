@@ -45,7 +45,8 @@ def convert_T_over_mu_to_T_func():
 def read_metadata(code,simnum,redshift,athreshold = .1):
     a = 1/redshift+1
     zthreshold = athreshold/a**2
-    path_to_metadata = os.path.expanduser("~/agora_analysis/agora_metadata")
+    _ROOT = os.path.abspath(os.path.dirname(__file__))
+    path_to_metadata = os.path.join(_ROOT,"agora_metadata")
     foldernames = {'C1':'Cal1','C2':'Cal2','C3':'Cal3','CR':'CosmoRun'}
     foldername = foldernames[simnum]
     metadata_location_folder = os.path.join(path_to_metadata,foldername)

@@ -1,0 +1,2 @@
+z, snapnum, center_x, center_y, center_z
+7.0, 800, -32.35306163, 135.62925844,   7.69213402

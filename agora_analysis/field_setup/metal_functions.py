@@ -1,5 +1,9 @@
 import numpy as np
 
+class RegionTooSmallError(Exception):
+    def __init__(self,message):
+        self.message = message
+
 def add_flux_fields(snap):
     ds = snap.ds
     code = snap.code
@@ -51,11 +55,13 @@ def calculate_inflow_outflow(snap,sphere_size=1,d=0.01,metals = True):
 
     sp = ds.sphere(snap.center, snap.Rvir*sphere_size)
     sp_surf = sp - ds.sphere(snap.center, snap.Rvir*sphere_size-dr)
-
-    if metals:
-        mass_over_sp = sp_surf['gas','metal_movement'].in_units('Msun*yr**-1*kpc')
-    else:
-        mass_over_sp = sp_surf['gas','gas_movement'].in_units('Msun*yr**-1*kpc')
+    try:
+        if metals:
+            mass_over_sp = sp_surf['gas','metal_movement'].in_units('Msun*yr**-1*kpc')
+        else:
+            mass_over_sp = sp_surf['gas','gas_movement'].in_units('Msun*yr**-1*kpc')
+    except ValueError:
+        raise RegionTooSmallError('d=%.2f gives surface with 0 cells!'%d)
     positive_flux = mass_over_sp>0
     negative_flux = mass_over_sp<0
     outflowing_mass = np.sum(mass_over_sp[positive_flux]/dr)

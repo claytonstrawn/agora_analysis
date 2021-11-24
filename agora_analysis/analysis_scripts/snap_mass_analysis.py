@@ -6,7 +6,8 @@ from agora_analysis.field_setup.common_fields import add_metallicity_fields,\
                                         particle_codes
 from agora_analysis.field_setup.metal_functions import add_flux_fields,\
                                                     calculate_inflow_outflow,\
-                                                    add_star_metals
+                                                    add_star_metals,\
+                                                    RegionTooSmallError
 
 import yt
 import numpy as np
@@ -73,11 +74,17 @@ def snap_mass_analysis(name,redshift,overwrite = False):
             bin_masses[i] = np.sum(sp['gas','agora_mass'][in_bin])
         data['resolution_info'] = bin_masses
         #record gas inflow/outflow through surface
-        i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.01,metals = False)
+        try:
+            i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.01,metals = False)
+        except RegionTooSmallError:
+            i,o = np.nan,np.nan
         data['gas_mass_inflow'] = i
         data['gas_mass_outflow'] = o
         #record gas metal inflow/outflow through surface
-        i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.01,metals = True)
+        try:
+            i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.01,metals = True)
+        except RegionTooSmallError:
+            i,o = np.nan,np.nan
         data['gas_metals_inflow'] = i
         data['gas_metals_outflow'] = o
             

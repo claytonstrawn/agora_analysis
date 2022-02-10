@@ -16,8 +16,15 @@ class NoSimulationError(Exception):
         self.message = message
 
 grid_codes = ['art','enzo','ramses']
-particle_codes = ['gadget','gear','gizmo','changa']
+particle_codes = ['changa','gadget','gear','gizmo']
 codes = grid_codes+particle_codes
+
+official_names = {'art':'ART-I','enzo':'ENZO','ramses':'RAMSES',\
+                  'gadget':'GADGET-3','gear':'GEAR','gizmo':'GIZMO',\
+                  'changa':'CHANGA'}
+anon_names = {'art':'AMR-1','enzo':'AMR-2','ramses':'AMR-3',\
+                  'gadget':'SPH-1','gear':'SPH-2','gizmo':'SPH-3',\
+                  'changa':'SPH-4'}
 
 class AgoraSnapshot(object):
     def __init__(self,fullname,redshift,Rvir_method = 'average',yt_log_level = 'default'):
@@ -27,6 +34,10 @@ class AgoraSnapshot(object):
         self.simulation = fullname.split('_')[0]
         assert self.simulation == 'AGORA','Simulation name must start with "AGORA"!'
         self.code = fullname.split('_')[1]
+        if self.code in grid_codes:
+            self.sampling_type = 'cell'
+        elif self.code in particle_codes:
+            self.sampling_type = 'particle'
         self.simnum = fullname.split('_')[2]
         if self.simnum in ['C3','CR']:
             self.stars_in = True

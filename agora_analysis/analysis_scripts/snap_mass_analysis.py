@@ -66,7 +66,7 @@ def snap_mass_analysis(name,redshift,overwrite = False):
             low = resolution_bins[i]
             high = resolution_bins[i+1]
             if code in grid_codes:
-                f = ('index','agora_cell_volume')
+                f = ('gas','agora_cell_volume')
             else:
                 f = ('gas','agora_particle_volume')
             in_bin = np.logical_and((sp[f]**(1./3.)).in_units('kpc').v>low,

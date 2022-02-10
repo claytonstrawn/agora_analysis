@@ -210,18 +210,17 @@ def add_gas_fields(snap):
                  sampling_type = sampling_type,
                  units="g**2/cm**6")
 
-
 def add_resolution_fields(snap):
     pf = snap.ds
     code = snap.code
     if code in grid_codes:
         def cell_volume(field,data):
             return data[("index", "cell_volume")]
-        pf.add_field(("index", "agora_cell_volume"),function=cell_volume,sampling_type = 'cell',
+        pf.add_field(("gas", "agora_cell_volume"),function=cell_volume,sampling_type = 'cell',
                      units='kpc**3', display_name="Resolution $\Delta$ x", take_log=True )
         def inverse_cell_volume_squared(field,data):
             return data[("index", "cell_volume")]**-2
-        pf.add_field(("index", "agora_cell_volume_inv2"), function=inverse_cell_volume_squared, \
+        pf.add_field(("gas", "agora_cell_volume_inv2"), function=inverse_cell_volume_squared, \
                      units='pc**(-6)',sampling_type = 'cell',
                      display_name="Inv2CellVolumeCode", take_log=True)
     elif code in particle_codes:
@@ -345,6 +344,19 @@ def add_temperature_fields(snap):
                         display_name="Temperature",
                         take_log=True,
                         units = 'K')
+
+def add_pressure_field(snap):
+    pf = snap.ds
+    code = snap.code
+    def gas_pressure(field,data):
+        return data['gas','temperature']*data['gas','number_density']
+    pf.add_field(('gas','agora_pressure'),
+                    sampling_type = snap.sampling_type,
+                    function = gas_pressure,
+                    force_override = True,
+                    display_name=r"$\rm{Pressure}/k_B$",
+                    take_log=True,
+                    units = 'K/cm**3')
 
 def add_new_star_ages(snap):
     pf = snap.ds

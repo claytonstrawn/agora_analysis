@@ -1,36 +1,35 @@
 from agora_analysis import AgoraSnapshot,NotCloseEnoughError
-from agora_analysis.field_setup.main import load_all_fields
+from agora_analysis.field_setup.main import load_necessary_fields
 from unyt import unyt_array
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import AxesGrid
-import yt
+from quasarscan.preprocessing.code_specific_setup import load_and_setup
+from quasarscan.utils import ion_lists
+import yt,trident
+from agora_analysis.image_scripts.default_cmaps_zlims import default_proj_cmaps,\
+                                                            default_proj_zlims,\
+                                                            default_proj_weights,\
+                                                            default_slc_cmaps,\
+                                                            default_slc_zlims
 
-default_proj_cmaps = {
-                     ('gas','density'): None,
-                     ('gas','temperature'): 'magma',
-                     ('gas','number_density'): None,
-                    }  
-default_proj_zlims = {
-                     ('gas','density'): (1e-4,1e2),
-                     ('gas','temperature'): (1e3,1e7),
-                     ('gas','number_density'): (1e20,1e26),
-                    }  
-default_proj_weights = {
-                        ('gas','density'): None,
-                        ('gas','temperature'): ('gas','density'),
-                        ('gas','number_density'): None,
-                       }  
-default_slc_cmaps = {
-                     ('gas','density'): None,
-                     ('gas','temperature'): 'magma',
-                     ('gas','number_density'): None,
-                    }  
-default_slc_zlims = {
-                     ('gas','density'): None,
-                     ('gas','temperature'): (1e3,1e7),
-                     ('gas','number_density'): (1e-4,1e3),
-                    }  
 
+def add_PI_CI_dens_field(code,ds):
+    def _PI_dens(field,data):
+        return data['gas','O_p5_number_density'] * data['gas','PI_OVI'] 
+    def _CI_dens(field,data):
+        return data['gas','O_p5_number_density'] * data['gas','CI_OVI']
+    if code in ['art','enzo','ramses']:
+        sampling_type = 'cell'
+    else:
+        sampling_type = 'particle'
+    ds.add_field(('gas','OVI_PI_dens'),
+                           sampling_type=sampling_type,
+                           function=_PI_dens,
+                           units='cm**-3')
+    ds.add_field(('gas','OVI_CI_dens'),
+                           sampling_type=sampling_type,
+                           function=_CI_dens,
+                           units='cm**-3')
 
 def choose_default(field,dict_type,v,printing = True):
     if v!= 'default':
@@ -47,8 +46,12 @@ def choose_default(field,dict_type,v,printing = True):
 def _plot_1field_2rows(proj_or_slc,field,redshift,width,circles=[1],axis = 0,
                       cmap = 'default',zlims = 'default',weight = 'default',
                       textsize = 30, textcolor = 'white',circlecolor = 'white',
-                     simnum = 'CR',offset_center = None):
-    code_list = ['art','enzo','ramses',None,'gadget','gear','gizmo','changa']
+                     simnum = 'CR',offset_center = None,load_method = 'AGORA',test_one_code = False):
+    code_list = [None,'enzo','art','ramses','gadget','gear','gizmo','changa']
+    if test_one_code:
+        code_list = [None,None,None,None,None,None,None,'art']
+
+    
     if not isinstance(field,tuple):
         field = ('gas',field)
     default_name = 'proj_%d_%.1f_%s.png'%(axis,redshift,field[1])
@@ -67,31 +70,44 @@ def _plot_1field_2rows(proj_or_slc,field,redshift,width,circles=[1],axis = 0,
     for i,code in enumerate(code_list):
         if code is None:
             continue
+        else:
+            print('plotting %s field %s for code "%s"'%(proj_or_slc,field,code))
         try:
             snap = AgoraSnapshot('AGORA_%s_%s'%(code,simnum),redshift)
         except NotCloseEnoughError:
             continue
         snap.load_snapshot()
-        load_all_fields(snap)
+        if load_method == 'AGORA':
+            load_necessary_fields(snap,field)
+            ds = snap.ds
+        elif load_method == 'quasarscan':
+            path = snap.lookup_snap_path()
+            ds,_ = load_and_setup(path,code,ions = ion_lists.agoraions)
         if not isinstance(width,unyt_array):
             width = width * snap.Rvir
         if offset_center is None:
             offset_center = unyt_array([0,0,0],'kpc')
         elif not isinstance(offset_center,unyt_array):
             offset_center = unyt_array(offset_center,'kpc')
-        if proj_or_slc == 'proj':
-            proj_region = snap.ds.box(snap.center - width,snap.center + width)
-            p = yt.ProjectionPlot(snap.ds, axis, field, center = snap.center+offset_center, 
-                               weight_field = weight,width = width, fontsize=9,
-                               data_source = proj_region)
-        elif proj_or_slc == 'slc':
-            p = yt.SlicePlot(snap.ds, axis, field, center = snap.center+offset_center, 
-                              width = width, fontsize=9)
-        for c in circles:
-            circle_radius = c*snap.Rvir
-            p.annotate_sphere(snap.center,circle_radius,circle_args={'color':circlecolor})
+        try:
+            if proj_or_slc == 'proj':
+                proj_region = ds.box(snap.center - width,snap.center + width)
+                p = yt.ProjectionPlot(ds, axis, field, center = snap.center+offset_center, 
+                                   weight_field = weight,width = width, fontsize=9,
+                                   data_source = proj_region)
+            elif proj_or_slc == 'slc':
+                p = yt.SlicePlot(ds, axis, field, center = snap.center+offset_center, 
+                                  width = width, fontsize=9)
+            for c in circles:
+                circle_radius = ds.arr(c*snap.Rvir.v,'kpc')
+                p.annotate_sphere(snap.center,circle_radius,circle_args={'color':circlecolor})
             p.annotate_text((0.2, 0.8), code, coord_system="axis",
-                            text_args = {'size':textsize,'color':textcolor})
+                                text_args = {'size':textsize,'color':textcolor})
+        except:
+            print('unable to plot %s field %s for code "%s"'%(proj_or_slc,field,code))
+            continue
+        if zlims == (0,1):
+            p.set_log(field,False)
         if zlims is not None:
             p.set_zlim(field,zlims[0],zlims[1])
         p.set_cmap(field, cmap)
@@ -106,4 +122,5 @@ def slc_1field_2rows(field,redshift,width,**kwargs):
     _plot_1field_2rows('slc',field,redshift,width,**kwargs)
     
 def proj_1field_2rows(field,redshift,width,**kwargs):
-    _plot_1field_2rows('proj',field,redshift,width,**kwargs
+    _plot_1field_2rows('proj',field,redshift,width,**kwargs)
+    

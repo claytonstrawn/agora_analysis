@@ -1,2 +1,2 @@
 from agora_analysis.agora_snapshot import AgoraSnapshot,NotCloseEnoughError
-from agora_analysis.agora_snapshot import grid_codes, particle_codes, codes
+from agora_analysis.agora_snapshot import grid_codes, particle_codes, codes,official_names,anon_names

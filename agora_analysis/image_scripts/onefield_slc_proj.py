@@ -1,4 +1,4 @@
-from agora_analysis import AgoraSnapshot,NotCloseEnoughError
+from agora_analysis import AgoraSnapshot,NotCloseEnoughError,official_names
 from agora_analysis.field_setup.main import load_necessary_fields
 from unyt import unyt_array
 import matplotlib.pyplot as plt
@@ -45,7 +45,7 @@ def choose_default(field,dict_type,v,printing = True):
 
 def _plot_1field_2rows(proj_or_slc,field,redshift,width,circles=[1],axis = 0,
                       cmap = 'default',zlims = 'default',weight = 'default',
-                      textsize = 30, textcolor = 'white',circlecolor = 'white',
+                      textsize = 30, textcolor = 'white',circlecolor = 'white',throw_errors = True,
                      simnum = 'CR',offset_center = None,load_method = 'AGORA',test_one_code = False):
     code_list = [None,'enzo','art','ramses','gadget','gear','gizmo','changa']
     if test_one_code:
@@ -103,9 +103,12 @@ def _plot_1field_2rows(proj_or_slc,field,redshift,width,circles=[1],axis = 0,
                 p.annotate_sphere(snap.center,circle_radius,circle_args={'color':circlecolor})
             p.annotate_text((0.2, 0.8), code, coord_system="axis",
                                 text_args = {'size':textsize,'color':textcolor})
-        except:
-            print('unable to plot %s field %s for code "%s"'%(proj_or_slc,field,code))
-            continue
+        except Exception as e:
+            if throw_errors == 'warn':
+                print('unable to plot %s field %s for code "%s" because of %s'%(proj_or_slc,field,code,e))
+                continue
+            elif throw_errors == True:
+                raise e
         if zlims == (0,1):
             p.set_log(field,False)
         if zlims is not None:
@@ -116,6 +119,7 @@ def _plot_1field_2rows(proj_or_slc,field,redshift,width,circles=[1],axis = 0,
         plot.axes = grid[i].axes
         plot.cax = grid.cbar_axes[0]
         p._setup_plots()
+        grid[i].axes.text(0,0,official_names[code])
     return fig,default_name
 
 def slc_1field_2rows(field,redshift,width,**kwargs):

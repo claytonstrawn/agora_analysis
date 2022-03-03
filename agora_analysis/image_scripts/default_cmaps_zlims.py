@@ -27,7 +27,8 @@ default_slc_cmaps = {('gas','PI_OVI_number_density'):('Spectral', 'Diverging', 7
                      ('gas','agora_pressure'): 'RdYlGn',
                      ('gas','density'): None,
                      ('gas','O_p5_ion_fraction'):('PuOr', 'Diverging', 8),
-                     ('gas','radial_velocity'):'PiYG',
+                     ('gas','radial_velocity'):'seismic',
+                     ('gas','cylindrical_velocity_z'):'seismic',
                     }  
 default_slc_zlims = {
                      ('gas','PI_OVI_number_density'):(1e-15,1e-8),
@@ -38,7 +39,8 @@ default_slc_zlims = {
                      ('gas','number_density'): (1e-5,1e-1),
                      ('gas','agora_metallicity'): (1e-3,1e-1),
                      ('gas','agora_pressure'): (1e1,1e6),
-                     ('gas','radial_velocity'): (-400,1000),
+                     ('gas','radial_velocity'): (-1000,1000),
+                     ('gas','cylindrical_velocity_z'):(-1000,1000),
                     }  
 
 default_thin_weights = {('gas','temperature'): ('gas','density'),
@@ -72,6 +74,17 @@ default_thin_zlims = {('gas','number_density'):(1e18,1e22),
                     ('gas','O_p5_ion_fraction'):(1e-8,1e0),
                     ('gas','CI_OVI'):(0,1),
                     ('gas','radial_velocity'): (-400,400),
+                    }  
+
+default_phase_cmaps = {('gas','mass'):None,
+                    }  
+default_phase_weights = {('gas','mass'):None,
+                    }  
+default_phase_fractional = {('gas','mass'):True,
+                    }  
+default_phase_xlims = {('gas','number_density'):(4e-5,1e3),
+                    }  
+default_phase_ylims = {('gas','temperature'):(5,8e7),
                     }  
 
 def choose_default(field,dict_type,v,printing = True):

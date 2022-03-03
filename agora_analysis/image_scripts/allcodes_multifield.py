@@ -3,8 +3,7 @@ from agora_analysis.field_setup.main import load_necessary_fields
 from unyt import unyt_array
 import matplotlib.pyplot as plt
 from mpl_toolkits.axes_grid1 import AxesGrid
-from quasarscan.preprocessing.code_specific_setup import load_and_setup
-from quasarscan.utils import ion_lists
+import numpy as np
 import yt,trident
 from agora_analysis.image_scripts.default_cmaps_zlims import choose_default,\
                                                             default_proj_cmaps,\
@@ -36,22 +35,65 @@ def add_PI_CI_dens_field(code,ds):
                            function=_CI_dens,
                            units='cm**-3')
 
+def _run_plot(proj_or_slc,snap,width,axis,weight,field,depth_frac):
+    ds = snap.ds
+    if proj_or_slc == 'thin':
+        depth = width*depth_frac
+    else:
+        depth = width
+    if isinstance(axis,(int,float)):
+        func = {'proj':yt.ProjectionPlot,'slc':yt.SlicePlot,'thin':yt.ProjectionPlot}[proj_or_slc]
+        north = None
+        proj_ax = np.zeros(3)
+        proj_ax[axis] = 1.0
+    elif axis in ['face','edge']:
+        func = {'proj':yt.OffAxisProjectionPlot,
+                'slc':yt.OffAxisSlicePlot,
+                'thin':yt.OffAxisProjectionPlot
+               }[proj_or_slc]
+        if snap.sampling_type == 'particle' and proj_or_slc == 'slc': 
+            func = yt.OffAxisProjectionPlot
+            depth = 0.005*width
+        if axis == 'face':
+            axis = snap.L
+            north = None
+        elif axis == 'edge':
+            axis = np.cross(np.array([0,0,1]),snap.L)
+            north = snap.L
+        proj_ax = axis
+    proj_region = ds.disk(snap.center,proj_ax,2*width,depth)
+    args = {'center' : snap.center, 
+            'width': (float(width.v),width.units), 
+            'fontsize':9,
+            'data_source': proj_region}
+    if proj_or_slc!= 'slc':
+        args['weight_field'] = weight
+    elif (proj_or_slc == 'slc') and (func is yt.OffAxisProjectionPlot):
+        args['weight_field'] = ('gas','density')
+    if north is not None:
+        args['north_vector'] = north
+    return func(ds, axis, field, **args)
+
 def _plot_nfields_allcodes(proj_or_slc,fields,redshift,width,circles=[1],axis = 0,
                       textsize = 30, textcolor = 'white',circlecolor = 'white',
-                      simnum = 'CR',offset_center = None,load_method = 'AGORA',
-                      depth_frac = 0.1,test_one_code = False,throw_errors = 'warn',**kwargs):
-    if isinstance(test_one_code,int):
-        code_list = [None]*(8-test_one_code)+codes[:test_one_code]
-    elif test_one_code:
-        code_list = [None,None,None,None,None,None,None,'art']
-    else:
-        code_list = codes
+                      simnum = 'CR',depth_frac = 0.1,test_one_code = False,throw_errors = 'warn'):
+    if isinstance(test_one_code,bool):
+        if test_one_code:
+            code_list = [None,None,None,None,None,None,'art']
+        else:
+            code_list = codes
+    elif isinstance(test_one_code,int):
+        code_list = [None]*(7-test_one_code)+codes[:test_one_code]
+    elif isinstance(test_one_code,str):
+        code_list = [None,None,None,None,None]+[test_one_code]
+    elif isinstance(test_one_code,list):
+        code_list = [None]*(7-len(test_one_code))+test_one_code
     temp_fields = list(fields)
     fields,fields_names,cmaps,zlims,weights = [],'',[],[],[]
     for field in temp_fields:
         if not isinstance(field,tuple):
             field = ('gas',field)
-            fields.append(field)
+        fields.append(field)    
         fields_names += field[1]
         cmaps.append(choose_default(field,'default_%s_cmaps'%proj_or_slc,'default'))
         zlims.append(choose_default(field,'default_%s_zlims'%proj_or_slc,'default'))
@@ -59,10 +101,14 @@ def _plot_nfields_allcodes(proj_or_slc,fields,redshift,width,circles=[1],axis = 
             weights.append(choose_default(field,'default_%s_weights'%proj_or_slc,'default'))
         else:
             weights.append(None)
-    default_name = '%s_%d_%.1f_%s.png'%(proj_or_slc,axis,redshift,fields_names)
-    fig  = plt.figure(figsize=(100,20))
+    default_name = '%s_%s_%.1f_%s.png'%(proj_or_slc,axis,redshift,fields_names)
+    fig  = plt.figure(figsize=(100,20))    
     grid = AxesGrid(fig,(0.01,0.01,0.99,0.99), (len(fields),len(code_list)), \
-                      **kwargs)
+                     axes_pad= 0.02,add_all = True, share_all = True,\
+                      label_mode= "L", cbar_mode = "edge",\
+                      cbar_location = "right", cbar_size = "6%", \
+                      direction = 'row',\
+                      cbar_pad = 0.02)
     for i,code in enumerate(code_list):
         if code is None:
             continue
@@ -73,40 +119,16 @@ def _plot_nfields_allcodes(proj_or_slc,fields,redshift,width,circles=[1],axis = 
         except NotCloseEnoughError:
             continue
         snap.load_snapshot()
-        if load_method == 'AGORA':
-            load_necessary_fields(snap,field)
-            ds = snap.ds
-        elif load_method == 'quasarscan':
-            path = snap.lookup_snap_path()
-            ds,_ = load_and_setup(path,code,ions = ion_lists.agoraions)
+        load_necessary_fields(snap,fields)
+        ds = snap.ds
         if not isinstance(width,unyt_array):
             width = width * snap.Rvir
-        if offset_center is None:
-            offset_center = unyt_array([0,0,0],'kpc')
-        elif not isinstance(offset_center,unyt_array):
-            offset_center = unyt_array(offset_center,'kpc')
         for j,field in enumerate(fields):
             cmap = cmaps[j]
             zlim = zlims[j]
             weight = weights[j]
             try:
-                if proj_or_slc == 'proj':
-                    proj_region = ds.box(snap.center - width,snap.center + width)
-                    p = yt.ProjectionPlot(ds, axis, field, center = snap.center+offset_center, 
-                                       weight_field = weight,width = width, fontsize=9,
-                                       data_source = proj_region)
-                elif proj_or_slc == 'slc':
-                    p = yt.SlicePlot(ds, axis, field, center = snap.center+offset_center, 
-                                      width = width, fontsize=9)
-                elif proj_or_slc == 'thin':
-                    depth = width*depth_frac
-                    to_add = unyt_array([width.v,width.v,width.v],width.units)
-                    to_add[axis] = depth.v
-                    proj_region = ds.box(snap.center+offset_center - to_add,\
-                                         snap.center+offset_center + to_add)
-                    p = yt.ProjectionPlot(ds, axis, field, center = snap.center+offset_center, 
-                                       weight_field = weight,width = width, fontsize=9,
-                                       data_source = proj_region)
+                p = _run_plot(proj_or_slc,snap,width,axis,weight,field,depth_frac)
                 for c in circles:
                     circle_radius = ds.arr(c*snap.Rvir.v,'kpc')
                     p.annotate_sphere(snap.center,circle_radius,circle_args={'color':circlecolor})
@@ -116,20 +138,19 @@ def _plot_nfields_allcodes(proj_or_slc,fields,redshift,width,circles=[1],axis = 
                 elif throw_errors == True:  
                     raise e
                 continue
-            if zlim == (0,1) or field[1] in ['radial_velocity']:
+            if zlim == (0,1) or field[1] in ['radial_velocity','cylindrical_velocity_z']:
                 p.set_log(field,False)
             if zlim is not None:
                 p.set_zlim(field,zlim[0],zlim[1])
             p.set_cmap(field, cmap)
             plot = p.plots[field]
             plot.figure = fig
-            plot.axes = grid[i+j*len(codes)].axes
-            if i == (len(code_list) - 1):
-                plot.cax = grid.cbar_axes[i+j*len(codes)]
+            plot.axes = grid[i+j*len(code_list)].axes
+            if i == len(code_list)-1:
+                plot.cax = grid.cbar_axes[j]
             p._setup_plots()
             if j==0:
-                grid[i+j*len(codes)].axes.set_title(official_names[code])
-            
+                grid[i+j*len(code_list)].axes.set_title(official_names[code])
     return fig,default_name
 
 def slc_nfields_allcodes(fields,redshift,width,**kwargs):

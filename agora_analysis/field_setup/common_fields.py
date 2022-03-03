@@ -87,10 +87,11 @@ def add_star_fields(snap):
         def star_metallicity(field, data):
             return data['agora_stars',StarMetallicityType_to_use]
         pf.add_field(('agora_stars','agora_metallicity'),
-                    sampling_type = 'particle',
-                    function = star_metallicity,
-                    force_override = True,
-                    units = '')
+                        sampling_type = 'particle',
+                        function = star_metallicity,
+                        force_override = True,
+                        units = '')
+
     def star_mass(field, data):
         return data['agora_stars',StarMassType_to_use]
     pf.add_field(('agora_stars','agora_mass'),
@@ -98,14 +99,6 @@ def add_star_fields(snap):
                 function = star_mass,
                 force_override = True,
                 units = 'Msun')
-    #removed until further tested
-    """def star_creation_time(field, data):
-        return data['agora_stars',FormationTimeType_to_use]
-    pf.add_field(('agora_stars','creation_time'),
-                sampling_type = 'particle',
-                function = star_creation_time,
-                force_override = True,
-                units = 's')"""
 
 def add_metallicity_fields(snap):
     pf = snap.ds
@@ -122,17 +115,6 @@ def add_metallicity_fields(snap):
                      sampling_type = 'cell',
                      take_log=True, 
                      units="")
-        if snap.stars_in and ("agora_stars", "particle_metallicity1") in pf.derived_field_list:
-            def art_star_metallicity(field, data):
-                return (data["agora_stars", "particle_metallicity1"]+\
-                        data["agora_stars", "particle_metallicity2"])
-            pf.add_field(('agora_stars', "metallicity"), 
-                         function=art_star_metallicity, 
-                         force_override=True,
-                         sampling_type = 'particle',
-                         display_name="Metallicity", 
-                         take_log=True, 
-                         units="")
     elif code == 'gadget':
         def gadget_metallicity(field, data):
             return data[('gas', "metallicity")]+YTArray(1e-4*0.02041,'')
@@ -345,7 +327,7 @@ def add_temperature_fields(snap):
                         take_log=True,
                         units = 'K')
 
-def add_pressure_field(snap):
+def add_pressure_fields(snap):
     pf = snap.ds
     code = snap.code
     def gas_pressure(field,data):
@@ -371,3 +353,20 @@ def add_new_star_ages(snap):
                      function=new_age,  
                      sampling_type = 'particle',
                      units="Gyr")
+        
+def add_radial_distance_fields(snap):
+    ds = snap.ds
+    def radial_distance(field,data):
+        xdist = data['gas','x']-snap.center_x
+        ydist = data['gas','y']-snap.center_y
+        zdist = data['gas','z']-snap.center_z
+        return np.sqrt(xdist**2+ydist**2+zdist**2)
+    ds.add_field(('gas','radial_distance'),function = radial_distance,
+                 units = 'kpc',sampling_type = snap.sampling_type,force_override = True)
+    def star_radial_distance(field,data):
+        xdist = data['agora_stars','particle_position_x']-snap.center_x
+        ydist = data['agora_stars','particle_position_y']-snap.center_y
+        zdist = data['agora_stars','particle_position_z']-snap.center_z
+        return np.sqrt(xdist**2+ydist**2+zdist**2)
+    ds.add_field(('agora_stars','radial_distance'),function = star_radial_distance,
+                 units = 'kpc',sampling_type = 'particle',force_override = True)

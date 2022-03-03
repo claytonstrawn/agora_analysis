@@ -44,7 +44,11 @@ class AgoraSnapshot(object):
         elif self.simnum in ['C1','C2']:
             self.stars_in = False
         self.approx_redshift = redshift
-        self.lookup_metadata()
+        self.lookup_base_metadata()
+        try:
+            self.lookup_derived_metadata()
+        except FileNotFoundError:
+            print('derived metadata not found. Assuming running derived metadata script now...')
         self.lookup_Rvir(Rvir_method = Rvir_method)
         #self.Rvir = self.lookup_Rvir(fullname,self.redshift,Rvir_method)
         #can add other calculated variables (Mstar, sfr, Mgas, bulk_velocity, angular_momentum, etc.)
@@ -64,27 +68,43 @@ class AgoraSnapshot(object):
         self.edit_center_units()
         self.set_up_fields(self.code,self.ds)
 
-    def lookup_metadata(self):
-        z,snapnum,center_x,center_y,center_z,Rvir = read_metadata(self.code,self.simnum,self.approx_redshift)
-        self.redshift = unyt_quantity(z,'')
-        self.snapnum = float(snapnum)
-        self.center_x = unyt_quantity(center_x,'kpc')
-        self.center_y = unyt_quantity(center_y,'kpc')
-        self.center_z = unyt_quantity(center_z,'kpc')
+    def lookup_base_metadata(self):
+        metadata_packet = read_metadata(self.code,self.simnum,self.approx_redshift,'base')
+        self.redshift = unyt_quantity(metadata_packet['z'],'')
+        self.snapnum = float(metadata_packet['snapnum'])
+        self.center_x = unyt_quantity(metadata_packet['center_x'],'kpc')
+        self.center_y = unyt_quantity(metadata_packet['center_y'],'kpc')
+        self.center_z = unyt_quantity(metadata_packet['center_z'],'kpc')
         self.center = unyt_array([self.center_x,self.center_y,self.center_z])
-        self.specific_Rvir = unyt_quantity(Rvir,'kpc')
+        self.specific_Rvir = unyt_quantity(metadata_packet['Rvir'],'kpc')
+
+    def lookup_derived_metadata(self):
+        metadata_packet = read_metadata(self.code,self.simnum,self.approx_redshift,'derived')
+        Lx,Ly,Lz = metadata_packet['Lx'],metadata_packet['Ly'],metadata_packet['Lz']
+        Lmag = np.sqrt(Lx**2+Ly**2+Lz**2)
+        self.Lmag = unyt_quantity(Lmag,'cm**2/s')
+        self.Lx = unyt_quantity(Lx/Lmag,'')
+        self.Ly = unyt_quantity(Ly/Lmag,'')
+        self.Lz = unyt_quantity(Lz/Lmag,'')
+        self.L = unyt_array([self.Lx,self.Ly,self.Lz])
+        bvx,bvy,bvz = metadata_packet['bvx'],metadata_packet['bvy'],metadata_packet['bvz']
+        self.bvx = unyt_quantity(bvx,'km/s')
+        self.bvy = unyt_quantity(bvy,'km/s')
+        self.bvz = unyt_quantity(bvz,'km/s')
+        self.bv = unyt_array([self.bvx,self.bvy,self.bvz])
+
         
     def lookup_Rvir(self,Rvir_method = 'average'):
-        Rvirs = []
-        for code in codes:
-            try:
-                _,_,_,_,_,Rvir = read_metadata(code,self.simnum,self.approx_redshift)
-                Rvirs.append(Rvir)
-            except NotCloseEnoughError:
-                continue
-            except NoMetadataError:
-                continue
         if Rvir_method == 'average':
+            Rvirs = []
+            for code in codes:
+                try:
+                    Rvir = read_metadata(code,self.simnum,self.approx_redshift,'base')['Rvir']
+                    Rvirs.append(Rvir)
+                except NotCloseEnoughError:
+                    continue
+                except NoMetadataError:
+                    continue
             Rvir = unyt_quantity(np.average(Rvirs),'kpc')
             self.Rvir = Rvir
         else:

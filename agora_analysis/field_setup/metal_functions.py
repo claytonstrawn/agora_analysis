@@ -1,8 +1,4 @@
 import numpy as np
-
-class RegionTooSmallError(Exception):
-    def __init__(self,message):
-        self.message = message
     
 def add_metal_mass_fields(snap):
     ds = snap.ds
@@ -50,7 +46,8 @@ def calculate_inflow_outflow(snap,sphere_size=1,d=0.01,metals = True,stars = Fal
 
     sp = ds.sphere(snap.center, snap.Rvir*sphere_size)
     sp_surf = sp - ds.sphere(snap.center, snap.Rvir*sphere_size-dr)
-    try:
+    if 1:
+    #try:
         if metals and stars:
             mass_over_sp = sp_surf['agora_stars','metal_movement'].in_units('Msun*yr**-1*kpc')
         elif metals and (not stars):
@@ -59,8 +56,10 @@ def calculate_inflow_outflow(snap,sphere_size=1,d=0.01,metals = True,stars = Fal
             mass_over_sp = sp_surf['agora_stars','star_mass_movement'].in_units('Msun*yr**-1*kpc')
         elif (not metals) and (not stars):
             mass_over_sp = sp_surf['gas','gas_movement'].in_units('Msun*yr**-1*kpc')
-    except ValueError:
-        raise RegionTooSmallError('d=%.2f gives surface with 0 cells!'%d)
+    else:
+    #except ValueError:
+        print('d=%.2f gives surface with 0 cells!'%d)
+        return np.nan,np.nan
     positive_flux = mass_over_sp>0
     negative_flux = mass_over_sp<0
     outflowing_mass = np.sum(mass_over_sp[positive_flux]/dr)

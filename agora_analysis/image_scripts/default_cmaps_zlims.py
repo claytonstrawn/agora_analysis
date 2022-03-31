@@ -82,7 +82,7 @@ default_phase_weights = {('gas','mass'):None,
                     }  
 default_phase_fractional = {('gas','mass'):True,
                     }  
-default_phase_xlims = {('gas','number_density'):(4e-5,1e3),
+default_phase_xlims = {('gas','number_density'):(5e-6,1e3),
                     }  
 default_phase_ylims = {('gas','temperature'):(5,8e7),
                     }  

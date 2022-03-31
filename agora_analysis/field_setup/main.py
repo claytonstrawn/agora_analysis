@@ -93,18 +93,27 @@ def load_necessary_fields(snap,fields,override = False,print_requirements = True
 
 def override_default_fields(snap,which = 'all'):
     if which == 'all':
-        which = ['temperature','metallicity','density']
+        which = ['density','metallicity','temperature']
     elif isinstance(which,str):
         which = [which]
-    print('replacing default %s fields with agora defined versions...'%which)
-    for i,fname in enumerate(which):
-        units = {'temperature':'K','metallicity':'','density':'g/cm**3'}
+    which = sorted(which)
+    needs_replacement_dict = {'density':['changa','gadget','gear','gizmo'],\
+                     'metallicity':['art','enzo','gear','gadget'],\
+                     'temperature':['ramses','gear','gadget','gizmo']}
+    units_dict = {'density':'g/cm**3','metallicity':'','temperature':'K'}
+    def recreate_field_function(fname):
         def recreate_field(field,data):
             return data['gas','agora_%s'%fname]
-        snap.ds.add_field(('gas', fname), 
-                         function=recreate_field, 
-                         force_override=True,
-                         sampling_type = snap.sampling_type,
-                         display_name=fname.capitalize(), 
-                         take_log=True, 
-                         units="")
+        return recreate_field
+    print('replacing default %s fields with agora defined versions...'%which)
+    for i,fname in enumerate(which):
+        needs_replacement = needs_replacement_dict[fname]
+        units = units_dict[fname]
+        if snap.code in needs_replacement:
+            snap.ds.add_field(('gas', fname), 
+                             function=recreate_field_function(fname), 
+                             force_override=True,
+                             sampling_type = snap.sampling_type,
+                             display_name=fname.capitalize(), 
+                             take_log=True, 
+                             units=units)

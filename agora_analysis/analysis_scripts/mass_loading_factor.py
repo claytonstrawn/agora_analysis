@@ -4,15 +4,18 @@ import yt
 yt.set_log_level(50)
 import os
 
-radii = np.array([0.1,0.15,0.2,0.3,0.5,0.7,1.0,1.5,2,4,8])
-
+def load_for_massloadingfactor(code,redshift):
+    snap = AgoraSnapshot(code,redshift)
+    snap.load_snapshot()
+    snap.add_correct_fields()
+    return snap
     
 def snap_mass_analysis(snap,overwrite = False):
     code = snap.code
     redshift = snap.approx_redshift
     if os.path.exists('agora_analysis_quantities/mass_data_%s_%.3f.txt'%(code,redshift)):
         if not overwrite:
-            print("file "+'agora_analysis_quantities/mass_data_%s_%.3f.txt'%(code,redshift)+\
+            print("file"+'agora_analysis_quantities/massloading_data_%s_%.3f.txt'%(code,redshift)+\
                   " already exists! skip!")
             return False
     #want to scan concentric spheres
@@ -24,7 +27,7 @@ def snap_mass_analysis(snap,overwrite = False):
     tot_gas_metals = unyt_quantity(0,'Msun')
     tot_star_metals = unyt_quantity(0,'Msun')
     for i,r in enumerate(radii):
-        print('\r'+'mass progress bar: '+'.'*(i+1)+' '*(len(radii)-i)+'!',end = '')
+        print('\r'+'mass progress bar: '+'.'*(i+1)+' '*(len(radii)-i-1)+'!',end = '')
         if oldsp is not None:
             sh = snap.ds.sphere(snap.center,r*snap.Rvir)-oldsp
         else:
@@ -41,11 +44,10 @@ def snap_mass_analysis(snap,overwrite = False):
         data['tot_gas_metals'] = unyt_quantity(np.copy(tot_gas_metals.v),tot_gas_metals.units)
         #record total star metals
         tot_star_metals += np.sum(sh['agora_stars','metal_mass']).in_units('Msun')
-        data['tot_star_metals'] = unyt_quantity(np.copy(tot_star_metals.v),tot_star_metals.units)
+        data['tot_star_metals'] = unyt_quantity(np.copy(tot_star_mass.v),tot_star_mass.units)
         all_data[r] = data
-        oldsp = snap.ds.sphere(snap.center,r*snap.Rvir)
     with open('agora_analysis_quantities/mass_data_%s_%.3f.txt'%(code,redshift),'w') as f:
         f.write('%s\n'%(all_data))
-        print('\r'+'mass progress bar: '+'.'*(i+1)+'!\n')
+        print()
     return True
 

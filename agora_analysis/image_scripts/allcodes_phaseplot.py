@@ -27,6 +27,8 @@ def _plot_phaseplot_allcodes(region,redshift,xfield = 'number_density',yfield = 
             code_list = codes
     elif isinstance(test_one_code,int):
         code_list = [None]*(8-test_one_code)+codes[:test_one_code]
+    elif isinstance(test_one_code,list):
+        code_list = test_one_code
     temp_fields = [xfield,yfield,zfield]
     fields = []
     for field in temp_fields:
@@ -88,7 +90,7 @@ def _plot_phaseplot_allcodes(region,redshift,xfield = 'number_density',yfield = 
         p._setup_plots()
         grid[i].axes.set_ylabel(official_names[code])
             
-    return fig,default_name
+    return fig,grid,default_name
 
 def phaseplot_allcodes(region,redshift,**kwargs):
     return _plot_phaseplot_allcodes(region,redshift,**kwargs)

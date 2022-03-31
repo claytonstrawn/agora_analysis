@@ -33,6 +33,35 @@ StarMetallicityType_to_use_dict = {'art':'particle_metallicity','ramses':'partic
 grid_codes = ['art','enzo','ramses']
 particle_codes = ['gadget','gear','gizmo','changa']
 
+def add_gas_fields(snap):
+    pf = snap.ds
+    code = snap.code
+    PartType_Gas_to_use = PartType_Gas_to_use_dict[code]
+    GasMassType_to_use = GasMassType_to_use_dict[code]
+    GasDensityType_to_use = GasDensityType_to_use_dict[code]
+    sampling_type = 'cell' if code in grid_codes else 'particle'
+    def gas_mass(field, data):
+        return data[PartType_Gas_to_use,GasMassType_to_use]
+    pf.add_field(('gas','agora_mass'),
+                    sampling_type = sampling_type,
+                    function = gas_mass,
+                    force_override = True,
+                    units = 'Msun')
+    def gas_density(field, data):
+        return data[PartType_Gas_to_use,GasDensityType_to_use]
+    pf.add_field(('gas','agora_density'),
+                    sampling_type = sampling_type,
+                    function = gas_density,
+                    force_override = True,
+                    units = 'g/cm**3')
+    def density_squared(field, data):
+        return data[(PartType_Gas_to_use, GasDensityType_to_use)]**2
+    pf.add_field(("gas", "agora_density_squared"),
+                 function=density_squared, 
+                 sampling_type = sampling_type,
+                 units="g**2/cm**6")
+
+
 def add_star_fields(snap):
     pf = snap.ds
     code = snap.code
@@ -103,11 +132,12 @@ def add_star_fields(snap):
 def add_metallicity_fields(snap):
     pf = snap.ds
     code = snap.code
-    sampling_type = 'cell' if code in grid_codes else 'particle'
+    sampling_type = snap.sampling_type
+    PartType_Gas_to_use = PartType_Gas_to_use_dict[code]
     if code == 'art': 
         def art_gas_metallicity(field, data):
             return (data["gas", "metal_ii_density"] + data["gas", "metal_ia_density"]) / \
-                    data["gas", "density"]
+                    data["gas", "agora_density"]
         pf.add_field(("gas", "agora_metallicity"), 
                      function=art_gas_metallicity, 
                      force_override=True, 
@@ -117,7 +147,7 @@ def add_metallicity_fields(snap):
                      units="")
     elif code == 'gadget':
         def gadget_metallicity(field, data):
-            return data[('gas', "metallicity")]+YTArray(1e-4*0.02041,'')
+            return data[(PartType_Gas_to_use, "Metallicity")]+YTArray(1e-4*0.02041,'')
         pf.add_field(('gas', 'agora_metallicity'), 
                      function=gadget_metallicity, 
                      force_override=True,
@@ -127,10 +157,10 @@ def add_metallicity_fields(snap):
                      units="")
     elif code == 'gear':
         def gear_metallicity(field, data):
-            if len(data['gas', "metallicity"].shape) == 1:
-                return data['gas',"metallicity"].in_units("")
+            if len(data[PartType_Gas_to_use, "metallicity"].shape) == 1:
+                return data[PartType_Gas_to_use,"metallicity"].in_units("")
             else:
-                return data['gas', "metallicity"][:,9].in_units("") 
+                return data[PartType_Gas_to_use, "metallicity"][:,9].in_units("") 
             # in_units("") turned out to be crucial!; otherwise code_metallicity 
             #will be used and it will mess things up
             # We are creating ("Gas", "Metallicity") here, 
@@ -162,35 +192,6 @@ def add_metallicity_fields(snap):
                     force_override = True,
                     units = '')
 
-
-
-def add_gas_fields(snap):
-    pf = snap.ds
-    code = snap.code
-    PartType_Gas_to_use = PartType_Gas_to_use_dict[code]
-    GasMassType_to_use = GasMassType_to_use_dict[code]
-    GasDensityType_to_use = GasDensityType_to_use_dict[code]
-    sampling_type = 'cell' if code in grid_codes else 'particle'
-    def gas_mass(field, data):
-        return data[PartType_Gas_to_use,GasMassType_to_use]
-    pf.add_field(('gas','agora_mass'),
-                    sampling_type = sampling_type,
-                    function = gas_mass,
-                    force_override = True,
-                    units = 'Msun')
-    def gas_density(field, data):
-        return data[PartType_Gas_to_use,GasDensityType_to_use]
-    pf.add_field(('gas','agora_density'),
-                    sampling_type = sampling_type,
-                    function = gas_density,
-                    force_override = True,
-                    units = 'g/cm**3')
-    def density_squared(field, data):
-        return data[(PartType_Gas_to_use, GasDensityType_to_use)]**2
-    pf.add_field(("gas", "agora_density_squared"),
-                 function=density_squared, 
-                 sampling_type = sampling_type,
-                 units="g**2/cm**6")
 
 def add_resolution_fields(snap):
     pf = snap.ds

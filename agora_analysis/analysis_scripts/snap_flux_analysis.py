@@ -20,23 +20,28 @@ def snap_flux_analysis(snap,overwrite = False):
     #want to scan concentric spheres
     all_data = {}
     
+    if code == 'gadget':
+        dt = 1e7
+    else:
+        dt = 1e6
+    
     for i,r in enumerate(radii):
         data = {}
-        print('\r'+'flux progress bar: '+'.'*(i+1)+' '*(len(radii)-i-1)+'!',end = '')
+        #print('\r'+'flux progress bar: '+'.'*(i+1)+' '*(len(radii)-i-1)+'!',end = '')
         #record gas inflow/outflow through surface
-        i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.01,metals = False,stars = False)
+        i,o = calculate_inflow_outflow(snap,sphere_size = r, dt = dt,metals = False,stars = False)
         data['gas_mass_inflow'] = i
         data['gas_mass_outflow'] = o
         #record gas metal inflow/outflow through surface
-        i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.01,metals = True,stars = False)
+        i,o = calculate_inflow_outflow(snap,sphere_size = r, dt = dt,metals = True,stars = False)
         data['gas_metals_inflow'] = i
         data['gas_metals_outflow'] = o
         #record stellar inflow/outflow through surface
-        i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.05,metals = False,stars = True)
+        i,o = calculate_inflow_outflow(snap,sphere_size = r, dt = dt,metals = False,stars = True)
         data['star_mass_inflow'] = i
         data['star_mass_outflow'] = o
         #record gas metal inflow/outflow through surface
-        i,o = calculate_inflow_outflow(snap,sphere_size = r, d = 0.05,metals = True,stars = True)
+        i,o = calculate_inflow_outflow(snap,sphere_size = r, dt = dt,metals = True,stars = True)
         data['star_metals_inflow'] = i
         data['star_metals_outflow'] = o
         all_data[r] = data

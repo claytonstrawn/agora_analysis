@@ -344,16 +344,16 @@ def add_pressure_fields(snap):
 def add_new_star_ages(snap):
     pf = snap.ds
     code = snap.code
-    if code in ['gear','gizmo','gadget']:
-        FormationTimeType_to_use='particle_ages'
-        def new_age(field,data):
-            formation_z=1./pf.arr(data[(PartType_Star_to_use,FormationTimeType_to_use1)],'')-1.
-            yt_cosmo=Cosmology()
-            return pf.current_time.in_units('Gyr')-yt_cosmo.t_from_z(formation_z).in_units('Gyr')
-        pf.add_field(('agora_stars','particle_ages'), 
-                     function=new_age,  
-                     sampling_type = 'particle',
-                     units="Gyr")
+    FormationTimeType_to_use=FormationTimeType_to_use_dict[code]
+    PartType_Star_to_use=PartType_Star_to_use_dict[code]
+    def new_age(field,data):
+        formation_z=1./pf.arr(data[(PartType_Star_to_use,FormationTimeType_to_use)],'')-1.
+        yt_cosmo=Cosmology()
+        return pf.current_time.in_units('Gyr')-yt_cosmo.t_from_z(formation_z).in_units('Gyr')
+    pf.add_field(('agora_stars','particle_ages'), 
+                 function=new_age,  
+                 sampling_type = 'particle',
+                 units="Gyr")
         
 def add_radial_distance_fields(snap):
     ds = snap.ds
@@ -369,5 +369,5 @@ def add_radial_distance_fields(snap):
         ydist = data['agora_stars','particle_position_y']-snap.center_y
         zdist = data['agora_stars','particle_position_z']-snap.center_z
         return np.sqrt(xdist**2+ydist**2+zdist**2)
-    ds.add_field(('agora_stars','radial_distance'),function = star_radial_distance,
-                 units = 'kpc',sampling_type = 'particle',force_override = True)
+    #ds.add_field(('agora_stars','radial_distance'),function = star_radial_distance,
+    #             units = 'kpc',sampling_type = 'particle',force_override = True)

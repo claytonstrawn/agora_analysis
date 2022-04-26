@@ -25,8 +25,8 @@ def add_cylindrical_velocity_fields(snap):
         z_comp_pos = (data['agora_stars','particle_position_z']-snap.center_z)*axis[2]
         above_disk = ((x_comp_pos+y_comp_pos+z_comp_pos>0.0)*2)-1
         return total_vel*above_disk
-    snap.ds.add_field(('agora_stars','cylindrical_velocity_z'),function = cylindrical_velocity_z,
-                 units = 'km/s',sampling_type = 'particle',force_override = True)
+    #snap.ds.add_field(('agora_stars','cylindrical_velocity_z'),function = cylindrical_velocity_z,
+    #             units = 'km/s',sampling_type = 'particle',force_override = True)
     
 def add_radial_velocity_fields(snap):
     ds = snap.ds
@@ -50,5 +50,5 @@ def add_radial_velocity_fields(snap):
         zvel = data['agora_stars','particle_velocity_z']-snap.bvz
         dot = xdist*xvel+ydist*yvel+zdist*zvel
         return dot/data['agora_stars','radial_distance']
-    ds.add_field(('agora_stars','radial_velocity'),function = star_radial_velocity,
-                 units = 'km/s',sampling_type = 'particle',force_override = True)
+    #ds.add_field(('agora_stars','radial_velocity'),function = star_radial_velocity,
+    #             units = 'km/s',sampling_type = 'particle',force_override = True)
